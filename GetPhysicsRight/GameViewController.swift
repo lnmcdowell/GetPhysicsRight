@@ -114,7 +114,7 @@ class GameViewController: UIViewController, SCNSceneRendererDelegate {
     //MARK - ApplyForce Knowledge
     
     // force: and at: are both in local coordinate system
-     func renderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
+     func ghgrenderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
    
         let rollForce = SCNVector3Make(0, 100, 0)
         //let translatedRollForce = ship.presentation.convertVector(rollForce, to: scene.rootNode)
@@ -122,11 +122,14 @@ class GameViewController: UIViewController, SCNSceneRendererDelegate {
         //ship.physicsBody?.applyForce(rollForce, at: SCNVector3Make(20, 0, 0), asImpulse: false)
         
         let pitchForce = SCNVector3Make(0, 100, 0)
+        var angleBetweenPFPlane = pitchForce.angleBetweenVectors(ship.presentation.worldFront)
+        let pitchTorqueForce = 100 * sin(angleBetweenPFPlane)
+        let upForceTryTorque = SCNVector4(1,0,0,pitchTorqueForce)
         //ship.physicsBody?.applyForce(pitchForce, at: SCNVector3Make(0, 0, 20), asImpulse: false)
                
   //MARK: -  wind from side
         
-        var windForce = SCNVector3Make(300, 20, 0)
+        var windForce = SCNVector3Make(300, 0, 0)
         windForce = yRotateVector(forceVector: windForce, radians: windAngleVariable * .pi / 180)
         
         var angleBetweenWindAndShipForward = windForce.angleBetweenVectors(ship.presentation.worldFront)
@@ -135,9 +138,13 @@ class GameViewController: UIViewController, SCNSceneRendererDelegate {
         }
         windForce *= -cos(angleBetweenWindAndShipForward + .pi/2)
         
-        print("strength: \(windForce.magnitude) at \(angleBetweenWindAndShipForward * 180 / .pi), z: \(renderer.pointOfView?.position.z)")
-        let translatedWindForce = scene.rootNode.convertVector(windForce, to: ship.presentation)
+       // print("strength: \(windForce.magnitude) at \(angleBetweenWindAndShipForward * 180 / .pi), z: \(renderer.pointOfView?.position.z)")
+        var translatedWindForce = scene.rootNode.convertVector(windForce, to: ship.presentation)
+     //   let upForceTryTorque = SCNVector4(1,0,0,-translatedWindForce.y)
         
+        //print(translatedWindForce)
+        print("\(angleBetweenWindAndShipForward * 180 / .pi), force \(pitchTorqueForce)")
+        translatedWindForce.y = 0
         var rudderForce = SCNVector3Make(100, 0, 0)
         //ship.physicsBody?.applyForce(rudderForce, at: SCNVector3Make(0, 0, 20), asImpulse: false)
         
@@ -147,10 +154,51 @@ class GameViewController: UIViewController, SCNSceneRendererDelegate {
        
         ship.physicsBody?.applyForce(translatedWindForce, at: rudderLocation, asImpulse: true)
                
-      
+        ship.physicsBody?.applyTorque(upForceTryTorque, asImpulse: true)
+        //ship.physicsBody?.applyForce(upForceTry, at: rudderLocation, asImpulse: true)
         renderer.pointOfView?.position.z = ship.presentation.position.z + 40
         }
     
+      func renderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
+     
+          let rollForce = SCNVector3Make(0, 100, 0)
+          //let translatedRollForce = ship.presentation.convertVector(rollForce, to: scene.rootNode)
+
+          //ship.physicsBody?.applyForce(rollForce, at: SCNVector3Make(20, 0, 0), asImpulse: false)
+          
+          let pitchForce = SCNVector3Make(0, 100, 0)
+          //ship.physicsBody?.applyForce(pitchForce, at: SCNVector3Make(0, 0, 20), asImpulse: false)
+                 
+    //MARK: -  wind from side
+          
+          var windForce = SCNVector3Make(300, 0, 0)
+          windForce = yRotateVector(forceVector: windForce, radians: windAngleVariable * .pi / 180)
+          
+          var angleBetweenWindAndShipForward = windForce.angleBetweenVectors(ship.presentation.worldFront)
+          if angleBetweenWindAndShipForward.isNaN {
+              angleBetweenWindAndShipForward = 0
+          }
+          windForce *= -cos(angleBetweenWindAndShipForward + .pi/2)
+          
+         // print("strength: \(windForce.magnitude) at \(angleBetweenWindAndShipForward * 180 / .pi), z: \(renderer.pointOfView?.position.z)")
+          var translatedWindForce = scene.rootNode.convertVector(windForce, to: ship.presentation)
+         
+          
+       
+          translatedWindForce.y = 0
+          var rudderForce = SCNVector3Make(100, 0, 0)
+          //ship.physicsBody?.applyForce(rudderForce, at: SCNVector3Make(0, 0, 20), asImpulse: false)
+          
+          let rudderLocation = SCNVector3Make(0, 0, 20)
+          let elevatorLocation = SCNVector3Make(0, 0, 19)
+          
+         
+          ship.physicsBody?.applyForce(translatedWindForce, at: rudderLocation, asImpulse: true)
+                 
+         
+       
+          renderer.pointOfView?.position.z = ship.presentation.position.z + 40
+          }
     func yRotateVector(forceVector:SCNVector3, radians:Float) -> SCNVector3{
 
         let intVector = SCNVector3Make(forceVector.x * sin(radians) + forceVector.z * cos(radians), forceVector.y, forceVector.x * cos(radians) + forceVector.z * sin(radians) )
