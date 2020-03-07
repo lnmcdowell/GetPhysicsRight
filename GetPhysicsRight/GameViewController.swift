@@ -12,6 +12,7 @@ import SceneKit
 
 class GameViewController: UIViewController, SCNSceneRendererDelegate {
 
+    var vectorDisplayNode:SCNNode!
     var windAngleVariable:Float = -25
     var ship:SCNNode!
     var scene:SCNScene!
@@ -69,6 +70,10 @@ class GameViewController: UIViewController, SCNSceneRendererDelegate {
         scnView.addGestureRecognizer(tapGesture)
         
         ship.physicsBody?.momentOfInertia = SCNVector3Make(8, 8, 20)
+        
+        vectorDisplayNode = showVector(fromVector: SCNVector3Zero, toVector: SCNVector3Make(0, 1, 0))
+        scene.rootNode.addChildNode(vectorDisplayNode)
+        //ship.parent?.addChildNode(vectorDisplayNode)
     }
     
     @objc
@@ -94,6 +99,26 @@ class GameViewController: UIViewController, SCNSceneRendererDelegate {
         windAngleVariable += 20
     }
     
+     func showVector(fromVector vector1: SCNVector3, toVector vector2: SCNVector3) -> SCNNode{
+    
+        let indices: [Int32] = [0, 1]
+
+        let source = SCNGeometrySource(vertices: [vector1, vector2])
+        let element = SCNGeometryElement(indices: indices, primitiveType: .line)
+
+       let myGeo = SCNGeometry(sources: [source], elements: [element])
+        
+        //SCNBox(width: 1, height: 1, length: 200, chamferRadius: 1)
+        
+        let material = SCNMaterial()
+    
+         material.diffuse.contents = UIColor(red: 0.9294, green: 0.651, blue: 0, alpha: 0.4)
+         myGeo.materials = [material]
+         let thisNode = SCNNode.init(geometry: myGeo)
+       //thisNode.pivot = SCNMatrix4MakeTranslation(0, 0, -100) //pivot is at center by default
+         thisNode.physicsBody?.collisionBitMask = -9
+         return thisNode
+     }
     override var shouldAutorotate: Bool {
         return true
     }
@@ -171,21 +196,21 @@ class GameViewController: UIViewController, SCNSceneRendererDelegate {
                  
     //MARK: -  wind from side
           
-          var windForce = SCNVector3Make(300, 0, 0)
+          var windForce = SCNVector3Make(300, 10, 0)
           windForce = yRotateVector(forceVector: windForce, radians: windAngleVariable * .pi / 180)
           
           var angleBetweenWindAndShipForward = windForce.angleBetweenVectors(ship.presentation.worldFront)
           if angleBetweenWindAndShipForward.isNaN {
               angleBetweenWindAndShipForward = 0
           }
-          windForce *= -cos(angleBetweenWindAndShipForward + .pi/2)
-          
+          windForce *= -cos(angleBetweenWindAndShipForward)// + .pi/2) //this line changed to make Torque agree, it was .pi/2 for applyForce below
+        
          // print("strength: \(windForce.magnitude) at \(angleBetweenWindAndShipForward * 180 / .pi), z: \(renderer.pointOfView?.position.z)")
           var translatedWindForce = scene.rootNode.convertVector(windForce, to: ship.presentation)
          
           
        
-          translatedWindForce.y = 0
+         // translatedWindForce.y = 0
           var rudderForce = SCNVector3Make(100, 0, 0)
           //ship.physicsBody?.applyForce(rudderForce, at: SCNVector3Make(0, 0, 20), asImpulse: false)
           
@@ -193,11 +218,22 @@ class GameViewController: UIViewController, SCNSceneRendererDelegate {
           let elevatorLocation = SCNVector3Make(0, 0, 19)
           
          
-          ship.physicsBody?.applyForce(translatedWindForce, at: rudderLocation, asImpulse: true)
-                 
-         
+       //   ship.physicsBody?.applyForce(translatedWindForce, at: rudderLocation, asImpulse: true)
+        var signOfTorque:Float = 1
+        if angleBetweenWindAndShipForward - (.pi/2) < 0 {
+            print("negative")
+            signOfTorque = -1
+        }
+        ship.physicsBody?.applyTorque(SCNVector4Make(0, 1, 0, translatedWindForce.magnitude * 30 * -signOfTorque), asImpulse: false)
        
           renderer.pointOfView?.position.z = ship.presentation.position.z + 40
+        
+        vectorDisplayNode.removeFromParentNode()
+        //vectorDisplayNode = showVector(fromVector: ship.presentation.position, toVector: windForce)
+       //
+        //ship.presentation.convertVector(windForce, to: renderer.scene?.rootNode)
+        vectorDisplayNode = CylinderLine(parent: ship.presentation, v1: windForce + ship.presentation.position, v2: SCNVector3Zero, radius: 0.6, radSegmentCount: 8, color: .blue)
+         renderer.scene?.rootNode.addChildNode(vectorDisplayNode)
           }
     func yRotateVector(forceVector:SCNVector3, radians:Float) -> SCNVector3{
 
